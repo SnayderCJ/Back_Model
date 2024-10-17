@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Captura de Video</title>
+</head>
+<body>
+    <h1>Captura de Video en Tiempo Real</h1>
+    <video id="video" autoplay playsinline width="640" height="480"></video>
+    <button id="capture">Capturar</button>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const captureButton = document.getElementById('capture');
+
+        // Acceder a la cámara
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Error al acceder a la cámara: ", err);
+            });
+
+        // Capturar el frame del video
+        captureButton.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Procesar el frame capturado (puedes enviar este frame al backend)
+            const frameData = canvas.toDataURL('image/jpeg');
+
+            // Aquí puedes enviar el frame al backend si lo deseas
+            sendFrameToBackend(frameData);
+        });
+
+        const sendFrameToBackend = async (frameData) => {
+            const response = await fetch('/api/capture-samples/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ image: frameData }),
+            });
+
+            const result = await response.json();
+            console.log(result);
+        };
+    </script>
+</body>
+</html>

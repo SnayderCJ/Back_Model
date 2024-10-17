@@ -1,0 +1,4 @@
+# No subir entorno virtual
+venv/
+.venv/
+*.venv
