@@ -1,56 +1,272 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Captura de Video</title>
-</head>
-<body>
-    <h1>Captura de Video en Tiempo Real</h1>
-    <video id="video" autoplay playsinline width="640" height="480"></video>
-    <button id="capture">Capturar</button>
-    <canvas id="canvas" style="display: none;"></canvas>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Captura de Video y Detección de Manos</title>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <h1>Captura de Video y Detección de Manos</h1>
+    <video
+      id="video"
+      class="input_video"
+      autoplay
+      playsinline
+      width="640"
+      height="480"
+    ></video>
+    <canvas
+      id="output_canvas"
+      class="output_canvas"
+      width="640"
+      height="480"
+    ></canvas>
 
-    <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
-        const captureButton = document.getElementById('capture');
+    <!-- Botones para normalizar y generar keypoints -->
+    <button id="normalizeBtn">Normalizar</button>
+    <button id="keypointsBtn">Generar Keypoints</button>
+    <button id="trainModelBtn">Entrenar Modelo</button>
 
-        // Acceder a la cámara
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                video.srcObject = stream;
-            })
-            .catch(err => {
-                console.error("Error al acceder a la cámara: ", err);
-            });
+    <script type="module">
+      const videoElement = document.getElementById("video");
+      const canvasElement = document.getElementById("output_canvas");
+      const canvasCtx = canvasElement.getContext("2d");
+      let mediaRecorder;
+      let recordedChunks = [];
+      let capturing = false;
+      let lastHandDetected = false;
+      let isRecording = false;
 
-        // Capturar el frame del video
-        captureButton.addEventListener('click', () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Procesar el frame capturado (puedes enviar este frame al backend)
-            const frameData = canvas.toDataURL('image/jpeg');
+      function onResults(results) {
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    
+        // Dibuja las conexiones de las manos
+        const handsDetected = results.leftHandLandmarks || results.rightHandLandmarks;
+    
+        if (results.leftHandLandmarks) {
+            drawConnectors(canvasCtx, results.leftHandLandmarks, HAND_CONNECTIONS, {color: '#FFFFFF', lineWidth: 1});
+            drawLandmarks(canvasCtx, results.leftHandLandmarks, {color: '#FF0000', lineWidth: 1});
+        }
+    
+        if (results.rightHandLandmarks) {
+            drawConnectors(canvasCtx, results.rightHandLandmarks, HAND_CONNECTIONS, {color: '#FFFFFF', lineWidth: 1});
+            drawLandmarks(canvasCtx, results.rightHandLandmarks, {color: '#FF0000', lineWidth: 1});
+        }
+    
+        // Dibuja las conexiones del rostro
+        if (results.faceLandmarks) {
+            drawConnectors(canvasCtx, results.faceLandmarks, FACEMESH_TESSELATION, {color: '#C0C0C070', lineWidth: 1});
+        }
+    
+        // Dibuja las conexiones del cuerpo (pose)
+        if (results.poseLandmarks) {
+            drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+            drawLandmarks(canvasCtx, results.poseLandmarks, {color: '#FF0000', lineWidth: 2});
+        }
+    
+        // Iniciar o detener la grabación basada en la detección de manos
+        if (handsDetected && !isRecording) {
+            startRecording();
+            isRecording = true;
+        } else if (!handsDetected && isRecording) {
+            stopRecordingAndSend();
+            isRecording = false;
+        }
+    
+        canvasCtx.restore();
+    }
 
-            // Aquí puedes enviar el frame al backend si lo deseas
-            sendFrameToBackend(frameData);
-        });
+      // Inicializar Holistic
+      const holistic = new Holistic({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`,
+      });
+      holistic.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+      holistic.onResults(onResults);
 
-        const sendFrameToBackend = async (frameData) => {
-            const response = await fetch('/api/capture-samples/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ image: frameData }),
-            });
+      const camera = new Camera(videoElement, {
+        onFrame: async () => {
+          await holistic.send({ image: videoElement });
+        },
+        width: 640,
+        height: 480,
+      });
+      camera.start();
 
-            const result = await response.json();
-            console.log(result);
+      // Iniciar grabación de video
+      function startRecording() {
+        recordedChunks = [];
+        console.log("Grabación iniciada");
+        const stream = videoElement.srcObject;
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
         };
+
+        mediaRecorder.start();
+      }
+
+      // Detener la grabación y enviar el video al backend
+      function stopRecordingAndSend() {
+        console.log("Grabación detenida. Enviando al backend...");
+        mediaRecorder.stop();
+
+        mediaRecorder.onstop = () => {
+          const videoBlob = new Blob(recordedChunks, { type: "video/webm" });
+          const label = prompt("Ingrese el label para el video:");
+
+          sendVideoToBackend(videoBlob, label);
+        };
+      }
+
+      // Enviar el video al backend
+      async function sendVideoToBackend(videoBlob, label) {
+        const formData = new FormData();
+        formData.append("video", videoBlob, "captured_video.webm");
+        formData.append("label", label);
+
+        try {
+          const response = await fetch("/api/capture-samples/", {
+            method: "POST",
+            body: formData,
+          });
+          const result = await response.json();
+          console.log(result);
+
+          const sampleId = result.sample_id;
+          document
+            .getElementById("normalizeBtn")
+            .setAttribute("data-sample-id", sampleId);
+          document
+            .getElementById("keypointsBtn")
+            .setAttribute("data-sample-id", sampleId);
+          document
+            .getElementById("trainModelBtn")
+            .setAttribute("data-sample-id", sampleId);
+        } catch (error) {
+          console.error("Error al enviar el video al backend:", error);
+        }
+      }
+
+      // Función para normalizar las muestras
+      async function normalizeSamples() {
+        const sampleId = document
+          .getElementById("normalizeBtn")
+          .getAttribute("data-sample-id");
+        if (!sampleId) {
+          alert("No se ha capturado ninguna muestra todavía.");
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/normalize-samples/${sampleId}/`, {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log("Normalización completada:", result);
+          } else {
+            console.error("Error en la normalización:", response.statusText);
+          }
+        } catch (error) {
+          console.error("Error en la petición de normalización:", error);
+        }
+      }
+
+      // Función para generar keypoints
+      async function generateKeypoints() {
+        const sampleId = document
+          .getElementById("keypointsBtn")
+          .getAttribute("data-sample-id");
+        if (!sampleId) {
+          alert("No se ha capturado ni normalizado ninguna muestra todavía.");
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/create-keypoints/${sampleId}/`, {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log("Keypoints generados exitosamente:", result);
+          } else {
+            console.error(
+              "Error al generar los keypoints:",
+              response.statusText
+            );
+          }
+        } catch (error) {
+          console.error("Error en la petición de keypoints:", error);
+        }
+      }
+
+      // Función para entrenar el modelo
+      async function trainModel() {
+        const sampleId = document
+          .getElementById("trainModelBtn")
+          .getAttribute("data-sample-id");
+        if (!sampleId) {
+          alert(
+            "No se ha capturado, normalizado ni generado keypoints de ninguna muestra todavía."
+          );
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/train-model/`, {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log("Modelo entrenado exitosamente:", result);
+          } else {
+            console.error("Error al entrenar el modelo:", response.statusText);
+          }
+        } catch (error) {
+          console.error("Error en la petición de entrenamiento:", error);
+        }
+      }
+
+      // Eventos de los botones
+      document
+        .getElementById("normalizeBtn")
+        .addEventListener("click", normalizeSamples);
+      document
+        .getElementById("keypointsBtn")
+        .addEventListener("click", generateKeypoints);
+      document
+        .getElementById("trainModelBtn")
+        .addEventListener("click", trainModel);
     </script>
-</body>
+  </body>
 </html>

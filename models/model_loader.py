@@ -7,4 +7,4 @@ import os
 MODEL_PATH = settings.MODEL_PATH
 
 # Cargar el modelo desde el archivo .keras
-model = load_model(MODEL_PATH)
+model  = load_model(MODEL_PATH)

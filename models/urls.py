@@ -6,7 +6,8 @@ from .views import (
     CreateKeypointsView,
     TrainModelView,
     PredictActionView,
-    VideoCaptureView
+    VideoCaptureView,
+    PrediccionCaptureView
 )
 
 urlpatterns = [
@@ -14,6 +15,7 @@ urlpatterns = [
     path('normalize-samples/<int:sample_id>/', NormalizeSamplesView.as_view(), name='normalize_samples'),
     path('create-keypoints/<int:sample_id>/', CreateKeypointsView.as_view(), name='create_keypoints'),
     path('train-model/', TrainModelView.as_view(), name='train_model'),
-    path('predict-action/<int:sample_id>/', PredictActionView.as_view(), name='predict_action'),
+    path('predict-action/', PredictActionView.as_view(), name='predict_action'),
     path('video-capture/', VideoCaptureView.as_view(), name='video_capture'),
+    path('prediccion-capture/', PrediccionCaptureView.as_view(), name='prediccion_capture'),
 ]

@@ -2,3 +2,88 @@
 venv/
 .venv/
 *.venv
+
+# No subir archivos de configuración
+*.env
+*.env.*
+
+# No subir archivos de logs
+*.log
+
+# No subir archivos de base de datos
+*.sqlite3
+
+# No subir archivos de caché
+__pycache__/
+.cache/
+
+# No subir archivos de compilación
+*.pyc
+*.pyo
+*.pyd
+
+# No subir archivos de dependencias
+*.lock
+*.egg-info/
+dist/
+build/
+bin/
+lib/
+include/
+share/
+local/
+
+# No subir archivos de entorno
+.env/
+.venv/
+env/
+venv/
+ENV/
+VENV/
+
+# No subir archivos de pruebas
+*.pytest_cache/
+*.coverage
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+
+# No subir archivos de documentación
+*.sphinx/
+doc/_build/
+
+# No subir archivos de configuración de IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.komodoproject
+.komodotools/
+.komodoedit/
+.komodoide/
+*.tmproj
+*.tmproject
+.tmproject
+*.tmbundle
+*.tmbundle.zip
+*.tmplugin
+*.tmplugin.zip
+*.tmbundle.zip
+*.tmbundle/
+*.tmplugin.zip
+*.tmplugin/
+*.tmlanguage
+*.tmlanguage.plist
+*.tmPreferences
+*.tmPreferences.plist
+*.tmTheme
+
+# No subir las migraciones 
+migrations/
+
+# No subir los frames 
+frames/
+frame_acrions/
+data/

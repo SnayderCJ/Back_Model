@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traducción de Señales a Texto</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+    <style>
+        #container {
+            display: flex;
+            align-items: center;
+        }
+        #video {
+            width: 640px;
+            height: 480px;
+        }
+        #predictedText {
+            margin-left: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            width: 200px;
+            height: 50px;
+            font-size: 18px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Traducción de Señales a Texto</h1>
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <div id="predictedText">Palabra predicha aquí</div>
+    </div>
+
+    <script type="module">
+        const videoElement = document.getElementById('video');
+        const predictedTextElement = document.getElementById('predictedText');
+
+        // Configuración de MediaPipe
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        hands.onResults(onResults);
+
+        // Iniciar la cámara
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+        camera.start();
+
+        // Función para manejar los resultados de la detección de manos
+        function onResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                predictWord(landmarks);
+            } else {
+                predictedTextElement.innerText = "No se detecta ninguna mano";
+            }
+        }
+
+        // Función para realizar la predicción
+        async function predictWord(landmarks) {
+            // Formatear los landmarks para enviarlos al backend
+            const data = {
+                landmarks: landmarks.map(({ x, y, z }) => ({ x, y, z }))
+            };
+
+            try {
+                // Realizar la solicitud POST al backend
+                const response = await fetch('/api/predict-action/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    // Mostrar la palabra predicha en el elemento
+                    predictedTextElement.innerText = result.predicted_word;
+                } else {
+                    predictedTextElement.innerText = result.error || "Error en la predicción";
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                predictedTextElement.innerText = "Error de conexión";
+            }
+        }
+    </script>
+</body>
+</html>

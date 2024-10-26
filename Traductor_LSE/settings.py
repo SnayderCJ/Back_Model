@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+import cv2
 from pathlib import Path
 from decouple import config
 
@@ -126,7 +127,8 @@ USE_TZ = True
 
 # Archivos multimedia (para guardar los modelos entrenados, por ejemplo)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'data')
+
 
 # Archivos estáticos
 STATIC_URL = '/static/'
@@ -141,9 +143,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Todas las contactantes de la red neuronal 
 
-import os
-import cv2
-
 # SETTINGS ESPECÍFICOS DEL MODELO
 MIN_LENGTH_FRAMES = 5
 LENGTH_KEYPOINTS = 1662
@@ -155,7 +154,7 @@ FRAME_ACTIONS_PATH = os.path.join(ROOT_PATH, "frame_actions")
 DATA_PATH = os.path.join(ROOT_PATH, "data")
 DATA_JSON_PATH = os.path.join(DATA_PATH, "data.json")
 MODEL_FOLDER_PATH = os.path.join(ROOT_PATH, "models")
-MODEL_PATH = os.path.join(MODEL_FOLDER_PATH, f"actions_{MODEL_FRAMES}.keras")
+MODEL_PATH = os.path.join(MODEL_FOLDER_PATH, f"actions_{MODEL_FRAMES}.h5")
 KEYPOINTS_PATH = os.path.join(DATA_PATH, "keypoints")
 WORDS_JSON_PATH = os.path.join(MODEL_FOLDER_PATH, "words.json")
 

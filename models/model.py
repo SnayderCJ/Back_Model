@@ -1,7 +1,7 @@
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.regularizers import l2
 from django.conf import settings
-from keras.api.models import Sequential
-from keras.api.layers import LSTM, Dense, Dropout
-from keras.api.regularizers import l2
 
 def get_model(max_length_frames, output_length: int):
     # Usar LENGTH_KEYPOINTS del archivo de configuración de settings
@@ -9,7 +9,7 @@ def get_model(max_length_frames, output_length: int):
     
     model = Sequential()
     
-    model.add(LSTM(64, return_sequences=True, input_shape=(max_length_frames, length_keypoints), kernel_regularizer=l2(0.01)))
+    model.add(LSTM(64, return_sequences=True, input_shape=(length_keypoints,max_length_frames), kernel_regularizer=l2(0.01)))
     model.add(Dropout(0.5))
     model.add(LSTM(128, return_sequences=False, kernel_regularizer=l2(0.001)))
     model.add(Dropout(0.5))
